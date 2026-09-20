@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv/
+venv/
+env/
+.idea/
+.vscode/
+flaskapp/static/uploads/
+flaskapp/static/image0008.png
+report/*.docx
+report/screen_*.png
+Thumbs.db
+desktop.ini

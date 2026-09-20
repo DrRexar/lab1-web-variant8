@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Результат</h1>
+<p class="text-muted">Режим обмена: <b>{{ mode }}</b></p>
+
+<div class="row g-4">
+  <div class="col-md-6">
+    <div class="card p-3">
+      <h2 class="h6">Исходное изображение</h2>
+      <img src="{{ in_image }}" class="img-fluid rounded" alt="Исходное">
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card p-3">
+      <h2 class="h6">Результат</h2>
+      <img src="{{ out_image }}" class="img-fluid rounded" alt="Результат">
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mt-4">
+  <div class="col-md-6">
+    <div class="card p-3">
+      <h2 class="h6">Распределение цветов — исходное</h2>
+      <img class="hist-img" src="data:image/png;base64,{{ hist_orig }}" alt="Гистограмма исходного">
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card p-3">
+      <h2 class="h6">Распределение цветов — результат</h2>
+      <img class="hist-img" src="data:image/png;base64,{{ hist_new }}" alt="Гистограмма результата">
+    </div>
+  </div>
+</div>
+
+<a class="btn btn-outline-secondary mt-4" href="{{ url_for('index') }}">Обработать ещё одну</a>
+{% endblock %}
