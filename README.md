@@ -26,6 +26,21 @@
 
 ---
 
+## Порты
+
+В проекте используются **два порта** — они относятся к разным режимам работы:
+
+| Режим | Порт | Как запускается | Где применяется |
+|---|---|---|---|
+| Разработка | **5000** | `python some_app.py` (Flask dev-сервер) | локальная отладка на машине разработчика |
+| Эксплуатация | **8080** | служба Windows `Lab1Service` через waitress | продакшн на целевой ВМ, куда смотрит автодеплой |
+
+Порт **8080** выбран потому, что порт 80 в Windows 11 обычно занят системной
+службой `http.sys` (IIS, WinRM). Это осознанное архитектурное решение, а не
+ограничение.
+
+---
+
 ## Стек
 
 | Компонент | Технология |
@@ -33,7 +48,7 @@
 | Python | 3.13 |
 | Веб-фреймворк | Flask 3.1 |
 | Формы | Flask-WTF, WTForms |
-| Капча | **Google reCAPTCHA v2 (Checkbox)** |
+| Капча | Google reCAPTCHA v2 (Checkbox) |
 | Обработка изображений | Pillow 11, NumPy 2.1 |
 | Графики | Matplotlib (Agg backend) |
 | WSGI (Windows) | waitress |
@@ -47,21 +62,21 @@
 
 ```
 lab1_web/
-├── .github/workflows/ci-cd.yml
+├── .github/workflows/ci-cd.yml     конфигурация CI/CD
 ├── .gitignore
 ├── .python-version
 ├── Procfile
 ├── README.md
 ├── requirements.txt
-├── run_local.py
-├── run_local.bat
+├── run_local.py                    запуск через waitress
+├── run_local.bat                   ярлык запуска на Windows
 └── flaskapp/
-    ├── some_app.py
-    ├── image_utils.py
-    ├── wsgi.py
-    ├── client.py
-    ├── st.sh
-    ├── static/uploads/
+    ├── some_app.py                 основное приложение
+    ├── image_utils.py              обработка изображений
+    ├── wsgi.py                     точка входа WSGI
+    ├── client.py                   проверка сервиса
+    ├── st.sh                       скрипт для CI
+    ├── static/uploads/             загруженные изображения
     └── templates/
         ├── base.html
         ├── index.html
@@ -72,7 +87,7 @@ lab1_web/
 
 ## Требования
 
-- Windows 11 (в VirtualBox)
+- Windows 11 (основной сценарий — виртуальная машина в VirtualBox)
 - Python 3.13
 - Git
 - NSSM — <https://nssm.cc/download>
@@ -80,13 +95,13 @@ lab1_web/
 
 ---
 
-## Установка и запуск (Windows 11)
+## Установка
 
 ### 1. Клонировать репозиторий
 
 ```powershell
 cd C:\Users\Daniil\Desktop\Tusur
-git clone git@github-drrexar:DrRexar/lab1-web-variant8.git lab1_web
+git clone https://github.com/DrRexar/lab1-web-variant8.git lab1_web
 cd lab1_web
 ```
 
@@ -99,10 +114,10 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-`gunicorn` на Windows не установится — это нормально, он пропускается
-по маркеру `sys_platform != "win32"`. На Windows используется `waitress`.
+`gunicorn` на Windows не установится — это нормально, он пропускается по
+маркеру `sys_platform != "win32"`. На Windows вместо него используется `waitress`.
 
-### 3. Создать `.env`
+### 3. Создать файл `.env`
 
 ```powershell
 notepad .env
@@ -112,8 +127,8 @@ notepad .env
 
 ```env
 SECRET_KEY=<случайная строка 32+ символа>
-RECAPTCHA_PUBLIC_KEY=<ваш site key>
-RECAPTCHA_PRIVATE_KEY=<ваш secret key>
+RECAPTCHA_PUBLIC_KEY=<ваш site key из Google>
+RECAPTCHA_PRIVATE_KEY=<ваш secret key из Google>
 ```
 
 Сгенерировать `SECRET_KEY`:
@@ -122,68 +137,38 @@ RECAPTCHA_PRIVATE_KEY=<ваш secret key>
 python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-### 4. Запуск в режиме разработки
+---
+
+## Запуск в режиме разработки (порт 5000)
 
 ```powershell
 cd flaskapp
 python some_app.py
 ```
 
-Откройте <http://127.0.0.1:5000/>.
+Откройте в браузере: **http://127.0.0.1:5000/**
 
-### 5. Полная проверка через waitress
-
-Из корня проекта:
-
-```powershell
-python run_local.py
-```
-
-Ожидаемое завершение — `ALL TESTS PASSED`.
+Это Flask dev-сервер, он годится только для локальной отладки. Для
+эксплуатации используется waitress как служба Windows.
 
 ---
 
-## Google reCAPTCHA v2 (Checkbox)
+## Запуск в режиме эксплуатации (порт 8080)
 
-### Как получить ключи
+Через waitress вручную:
 
-1. Откройте <https://www.google.com/recaptcha/admin/create>.
-2. **Label**: `lab1-web-variant8`.
-3. **Тип reCAPTCHA**: **reCAPTCHA v2** → галочка **«Я не робот» (Checkbox)**.
-4. **Домены**: `localhost`, `127.0.0.1` (можно добавить IP вашей ВМ).
-5. Примите условия → **Submit**.
-6. Скопируйте **Site key** и **Secret key** в `.env`.
-
-### Тестовые ключи Google (всегда пропускают пользователя)
-
-- Site key: `6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI`
-- Secret key: `6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe`
-
-Эти ключи используются в job `Build & Test` (CI), чтобы тесты не падали
-на капче.
-
-### Как это работает в коде
-
-В `some_app.py` объявлен класс формы:
-
-```python
-from flask_wtf import FlaskForm, RecaptchaField
-
-class UploadForm(FlaskForm):
-    # ...
-    recaptcha = RecaptchaField()
-    submit = SubmitField("Обработать")
+```powershell
+cd flaskapp
+..\venv\Scripts\python.exe -m waitress --host=0.0.0.0 --port=8080 some_app:app
 ```
 
-Flask-WTF сам вставляет виджет Google и подключает скрипт
-`https://www.google.com/recaptcha/api.js`. При `validate_on_submit()`
-он проверяет ответ через `https://www.google.com/recaptcha/api/siteverify`
-с вашим `RECAPTCHA_PRIVATE_KEY`.
+Откройте в браузере: **http://localhost:8080/**
 
-В `templates/index.html` виджет выводится так:
+Проверка healthcheck:
 
-```html
-{{ form.recaptcha }}
+```powershell
+(Invoke-WebRequest -UseBasicParsing http://localhost:8080/health).Content
+# {"status":"ok"}
 ```
 
 ---
@@ -213,7 +198,6 @@ C:\nssm\nssm.exe status Lab1Service
 
 ```powershell
 (Invoke-WebRequest -UseBasicParsing http://localhost:8080/health).Content
-# {"status":"ok"}
 ```
 
 Управление службой:
@@ -224,9 +208,25 @@ C:\nssm\nssm.exe stop Lab1Service
 C:\nssm\nssm.exe status Lab1Service
 ```
 
-**Порт.** Используется **8080**, потому что порт 80 в Windows 11 обычно
-занят `http.sys`. Если 80 свободен — можно использовать его, но не забудьте
-поменять порт во всех командах и в workflow.
+---
+
+## Google reCAPTCHA v2
+
+### Как получить ключи
+
+1. Откройте <https://www.google.com/recaptcha/admin/create>.
+2. **Label**: `lab1-web-variant8`.
+3. **Тип reCAPTCHA**: **reCAPTCHA v2** → галочка **«Я не робот» (Checkbox)**.
+4. **Домены**: `localhost`, `127.0.0.1` (можно добавить IP вашей ВМ).
+5. Примите условия → **Submit**.
+6. Скопируйте **Site key** и **Secret key** в `.env`.
+
+### Тестовые ключи Google (всегда пропускают пользователя)
+
+- Site key: `6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI`
+- Secret key: `6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe`
+
+Используются в job `Build & Test` (CI), чтобы тесты не падали на капче.
 
 ---
 
@@ -237,8 +237,8 @@ C:\nssm\nssm.exe status Lab1Service
 ### `Build & Test` (ubuntu-latest)
 
 - Устанавливает зависимости.
-- Запускает gunicorn, прогоняет `client.py`.
-- Проверяет `/`, `/health` и `/apinet` (оба режима).
+- Запускает приложение через gunicorn на **порту 5000**.
+- Прогоняет `client.py`: проверяет `/`, `/health`, `/apinet` в обоих режимах.
 - Завершается строкой `ALL TESTS PASSED`.
 
 ### `Deploy on Windows VM` (self-hosted)
@@ -248,7 +248,7 @@ C:\nssm\nssm.exe status Lab1Service
 - `git fetch --all` + `git reset --hard origin/main`.
 - Обновляет зависимости в venv.
 - Перезапускает `Lab1Service` через NSSM.
-- Проверяет `/health`, при неудаче валит job.
+- Проверяет `/health` на **порту 8080** и валит job, если ответ не `ok`.
 
 Ручной запуск (`workflow_dispatch`) **не** деплоит — защита от случайных
 действий.
@@ -265,28 +265,42 @@ C:\nssm\nssm.exe status Lab1Service
 
 ```powershell
 cd C:\actions-runner
-.\config.cmd --url https://github.com/DrRexar/lab1-web-variant8 --token <ТОКЕН> --runasservice
+.\config.cmd --url https://github.com/DrRexar/lab1-web-variant8 --token <ТОКЕН>
+# на вопрос "install as a service?" → N
 ```
 
-Токен живёт 1 час. Проверка:
+### Запуск как службы через NSSM
 
 ```powershell
-Get-Service "actions.runner.*"
+C:\nssm\nssm.exe install ActionRunner "C:\actions-runner\bin\Runner.Listener.exe" "run"
+C:\nssm\nssm.exe set ActionRunner AppDirectory "C:\actions-runner"
+C:\nssm\nssm.exe set ActionRunner AppStdout "C:\actions-runner\logs\stdout.log"
+C:\nssm\nssm.exe set ActionRunner AppStderr "C:\actions-runner\logs\stderr.log"
+C:\nssm\nssm.exe set ActionRunner AppExit Default Restart
+C:\nssm\nssm.exe set ActionRunner AppRestartDelay 5000
+C:\nssm\nssm.exe set ActionRunner Start SERVICE_AUTO_START
+
+C:\nssm\nssm.exe start ActionRunner
 ```
 
-На странице **Settings → Actions → Runners** раннер должен быть **Idle**
-(зелёная точка).
+> **Важно:** runner должен иметь доступ к папке проекта. Служба работает
+> от `LocalSystem`, а папка `C:\Users\Daniil\...` ему не видна по умолчанию.
+> Решение — выдать права:
+>
+> ```powershell
+> icacls "C:\Users\Daniil\Desktop\Tusur\lab1_web" /grant "SYSTEM:(OI)(CI)F" /T
+> icacls "C:\Users\Daniil\Desktop\Tusur\lab1_web\venv" /grant "SYSTEM:(OI)(CI)F" /T
+> icacls "C:\Users\Daniil\Desktop\Tusur\lab1_web\logs" /grant "SYSTEM:(OI)(CI)F" /T
+> ```
+>
+> Дополнительно нужно разрешить git работать с этим репозиторием под SYSTEM:
+>
+> ```powershell
+> $env:HOME = "C:\Windows\System32\config\systemprofile"
+> git config --global --add safe.directory "C:/Users/Daniil/Desktop/Tusur/lab1_web"
+> ```
 
-### Если служба не ставится
-
-Запуск вручную:
-
-```powershell
-cd C:\actions-runner
-.\run.cmd
-```
-
-Окно держать открытым. При перезагрузке — запускать заново.
+Проверка, что runner онлайн: **Settings → Actions → Runners** — статус `Idle`.
 
 ---
 
@@ -331,20 +345,25 @@ cd C:\actions-runner
 
 ## Проверка автодеплоя
 
-1. Служба:
+1. Убедиться, что служба `Lab1Service` работает:
    ```powershell
    C:\nssm\nssm.exe status Lab1Service
    (Invoke-WebRequest -UseBasicParsing http://localhost:8080/health).Content
    ```
-2. Раннер **Idle**: <https://github.com/DrRexar/lab1-web-variant8/settings/actions/runners>
-3. Реальный push:
+
+2. Убедиться, что runner **Idle**:
+   <https://github.com/DrRexar/lab1-web-variant8/settings/actions/runners>
+
+3. Сделать реальный push:
    ```powershell
    cd "C:\Users\Daniil\Desktop\Tusur\lab1_web"
    git add .
    git commit -m "test autodeploy"
    git push origin main
    ```
-4. Вкладка **Actions** — оба job'а должны стать зелёными.
+
+4. Открыть вкладку **Actions** и наблюдать, как job `Deploy on Windows VM`
+   выполняется на целевой ВМ.
 
 ---
 
@@ -352,30 +371,33 @@ cd C:\actions-runner
 
 | Симптом | Причина | Решение |
 |---|---|---|
-| `pip install gunicorn` падает | Windows | это норма, gunicorn — только Linux |
-| `Could not connect to github.com:22` | порт 22 закрыт | SSH через 443 (`~/.ssh/config`) |
-| `Permission to ... denied to ...` | два GitHub-аккаунта | `git@github-drrexar:DrRexar/...` |
-| `SERVICE_STOPPED` у NSSM | неверный путь / порт занят | смотреть `logs\stderr.log` |
-| `Port 80 permission denied` | занят `http.sys` | использовать 8080 |
-| Job `Deploy` в `Queued` > 2 мин | runner offline | `Get-Service "actions.runner.*"`, `Start-Service` |
-| `Skipped` на `Deploy` при ручном запуске | защита от случайного деплоя | сделать настоящий push |
+| `pip install gunicorn` падает | Windows | нормально, gunicorn — только для Linux |
+| `SERVICE_STOPPED` у `Lab1Service` | неверный путь или занятый порт | смотреть `logs\stderr.log` |
+| Порт 80 занят | `http.sys` | использовать 8080 |
+| Job `Deploy` в `Queued` > 2 мин | runner offline | `C:\nssm\nssm.exe status ActionRunner` |
+| `Access is denied` при `Set-Location` | runner работает не под тем пользователем | `icacls ... /grant SYSTEM` |
+| `detected dubious ownership in repository` | git под SYSTEM не доверяет папке | `git config --global --add safe.directory` |
+| `Skipped` на `Deploy` при ручном запуске | защита от случайного деплоя | делать реальный push |
 | Капча не проходит | домен не добавлен в Google Console | добавить `localhost` и IP ВМ |
 
 ---
 
-## Материалы
+## Список источников
 
-- Суханов А. Я. «Разработка веб-сервисов для научных и прикладных задач», ТУСУР, 2021.
-- Flask — <https://flask.palletsprojects.com/>
-- Flask-WTF — <https://flask-wtf.readthedocs.io/>
-- Google reCAPTCHA v2 — <https://developers.google.com/recaptcha/docs/display>
-- GitHub Actions — <https://docs.github.com/actions>
-- NSSM — <https://nssm.cc/>
-- waitress — <https://docs.pylonsproject.org/projects/waitress/>
+1. Суханов, А. Я. Разработка веб-сервисов для научных и прикладных задач :
+   учеб. пособие / А. Я. Суханов. – Томск : ФДО, ТУСУР, 2021. – 246 с.
+2. Официальная документация Flask. – URL: https://flask.palletsprojects.com/
+3. Flask-WTF: формы и интеграция с reCAPTCHA. – URL: https://flask-wtf.readthedocs.io/
+4. Google reCAPTCHA v2 Documentation. – URL: https://developers.google.com/recaptcha/docs/display
+5. GitHub Actions Documentation. – URL: https://docs.github.com/actions
+6. NSSM — the Non-Sucking Service Manager. – URL: https://nssm.cc/
+7. Pillow (PIL Fork) Documentation. – URL: https://pillow.readthedocs.io/
 
 ---
 
 ## Автор
 
-Даниил, ТУСУР, ФДО, направление 09.03.01
-«Информатика и вычислительная техника».
+**Козик Даниил Дмитриевич**
+
+ТУСУР, факультет дистанционного обучения,
+направление 09.03.01 «Информатика и вычислительная техника».
