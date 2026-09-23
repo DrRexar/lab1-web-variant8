@@ -3,6 +3,12 @@
 <h1 class="h4 mb-3">Результат</h1>
 <p class="text-muted">Режим обмена: <b>{{ mode }}</b></p>
 
+{% if stamped %}
+<p class="text-success small">
+  ✓ Штамп с датой и временем наложен ({{ stamp_position }})
+</p>
+{% endif %}
+
 <div class="row g-4">
   <div class="col-md-6">
     <div class="card p-3">

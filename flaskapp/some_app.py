@@ -14,13 +14,11 @@ from flask import (Flask, render_template, request,
                    jsonify, url_for)
 from flask_wtf import FlaskForm, RecaptchaField
 from flask_wtf.file import FileField, FileRequired, FileAllowed
-from wtforms import RadioField, SubmitField
+from wtforms import RadioField, SubmitField, BooleanField, SelectField
 from werkzeug.utils import secure_filename
 
-from image_utils import swap_halves, color_histogram_b64, image_to_b64_png
-
-from dotenv import load_dotenv
-load_dotenv()
+from image_utils import (swap_halves, color_histogram_b64,
+                         image_to_b64_png, add_timestamp)
 
 
 app = Flask(__name__)
@@ -57,6 +55,17 @@ class UploadForm(FlaskForm):
         ],
         default="horizontal",
     )
+    add_stamp = BooleanField("Добавить дату и время")
+    stamp_position = SelectField(
+        "Расположение штампа",
+        choices=[
+            ("bottom-right", "Снизу справа"),
+            ("bottom-left",  "Снизу слева"),
+            ("top-right",    "Сверху справа"),
+            ("top-left",     "Сверху слева"),
+        ],
+        default="bottom-right",
+    )
     recaptcha = RecaptchaField()
     submit = SubmitField("Обработать")
 
@@ -79,6 +88,11 @@ def index():
 
         img = Image.open(in_path).convert("RGB")
         result = swap_halves(img, form.mode.data)
+
+        # Наложение штампа с датой/временем, если пользователь выбрал
+        if form.add_stamp.data:
+            result = add_timestamp(result, position=form.stamp_position.data)
+
         result.save(out_path)
 
         return render_template(
@@ -88,6 +102,8 @@ def index():
             hist_orig=color_histogram_b64(img),
             hist_new=color_histogram_b64(result),
             mode=form.mode.data,
+            stamped=form.add_stamp.data,
+            stamp_position=form.stamp_position.data,
         )
 
     return render_template("index.html", form=form)

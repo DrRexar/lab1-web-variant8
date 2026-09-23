@@ -28,6 +28,22 @@
           {% endfor %}
         </fieldset>
 
+        <fieldset class="mb-3">
+          <legend class="form-label fs-6">Дополнительно</legend>
+
+          <div class="form-check mb-2">
+            {{ form.add_stamp(class="form-check-input") }}
+            <label class="form-check-label" for="{{ form.add_stamp.id }}">
+              {{ form.add_stamp.label.text }}
+            </label>
+          </div>
+
+          <label class="form-label small text-muted">
+            Расположение штампа
+          </label>
+          {{ form.stamp_position(class="form-select form-select-sm") }}
+        </fieldset>
+
         <div class="mb-3">
           {{ form.recaptcha }}
           {% for e in form.recaptcha.errors %}
