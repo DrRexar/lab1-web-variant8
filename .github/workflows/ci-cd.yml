@@ -1,0 +1,72 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    env:
+      RECAPTCHA_PUBLIC_KEY: 6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI
+      RECAPTCHA_PRIVATE_KEY: 6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe
+      SECRET_KEY: ci-secret-key-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfreetype6-dev
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run application test (gunicorn + client.py)
+        run: |
+          chmod +x flaskapp/st.sh
+          cd flaskapp
+          ./st.sh
+
+  deploy:
+    name: Deploy to server
+    needs: test
+    # Автодеплой выполняется self-hosted runner на Proxmox (в той же сети, что и контейнер 102).
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Deploy to LXC container
+        run: |
+          set -e
+          pct exec 102 -- bash -lc '
+            set -e
+            cd /opt/lab1
+            if [ -d appsrc/.git ]; then
+              cd appsrc && git fetch --all && git reset --hard origin/main
+            else
+              rm -rf appsrc && git clone https://github.com/DrRexar/lab1-web-variant8.git appsrc
+            fi
+            if command -v rsync >/dev/null 2>&1; then
+              rsync -a --delete /opt/lab1/appsrc/flaskapp/ /opt/lab1/flaskapp/
+            else
+              cp -r /opt/lab1/appsrc/flaskapp/. /opt/lab1/flaskapp/
+            fi
+            cp /opt/lab1/appsrc/requirements.txt /opt/lab1/requirements.txt
+            /opt/lab1/venv/bin/pip install -q -r /opt/lab1/requirements.txt
+            systemctl restart lab1
+            sleep 3
+            curl -fsS http://127.0.0.1:8080/health
+          '
+          echo "DEPLOY_OK"
